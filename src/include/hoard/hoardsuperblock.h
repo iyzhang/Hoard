@@ -38,164 +38,183 @@
 
 namespace Hoard {
 
-  template <class LockType,
-	    int SuperblockSize,
-	    class HeapType>
-  class HoardSuperblock {
-  public:
+    template <class LockType,
+              int SuperblockSize,
+              class HeapType>
+    class HoardSuperblock;
+    
+    template <class LockType,
+              int SuperblockSize,
+              class HeapType,
+              class HeaderType>
+    class HoardSuperblockHelper {
+    public:
 
-    HoardSuperblock (size_t sz)
-      : _header (sz, BufferSize)
-    {
-      assert (_header.isValid());
-      assert (this == (HoardSuperblock *)
-	      (((size_t) this) & ~((size_t) SuperblockSize-1)));
-    }
+        HoardSuperblockHelper (size_t sz)
+            : _header (sz, BufferSize)
+        {
+            assert (_header.isValid());
+            assert (this == (HoardSuperblock *)
+                    (((size_t) this) & ~((size_t) SuperblockSize-1)));
+        }
     
-    /// @brief Find the start of the superblock by bitmasking.
-    /// @note  All superblocks <em>must</em> be naturally aligned, and powers of two.
-    static inline HoardSuperblock * getSuperblock (void * ptr) {
-      return (HoardSuperblock *)
-	(((size_t) ptr) & ~((size_t) SuperblockSize-1));
-    }
+        /// @brief Find the start of the superblock by bitmasking.
+        /// @note  All superblocks <em>must</em> be naturally aligned, and powers of two.
+        static inline HoardSuperblock<LockType, SuperblockSize, HeapType> * getSuperblock (void * ptr) {
+            return (HoardSuperblock<LockType, SuperblockSize, HeapType> *)
+                (((size_t) ptr) & ~((size_t) SuperblockSize-1));
+        }
 
-    INLINE size_t getSize (void * ptr) const {
-      if (_header.isValid() && inRange (ptr)) {
-	return _header.getSize (ptr);
-      } else {
-	return 0;
-      }
-    }
+        INLINE size_t getSize (void * ptr) const {
+            if (_header.isValid() && inRange (ptr)) {
+                return _header.getSize (ptr);
+            } else {
+                return 0;
+            }
+        }
 
 
-    INLINE size_t getObjectSize() const {
-      if (_header.isValid()) {
-	return _header.getObjectSize();
-      } else {
-	return 0;
-      }
-    }
+        INLINE size_t getObjectSize() const {
+            if (_header.isValid()) {
+                return _header.getObjectSize();
+            } else {
+                return 0;
+            }
+        }
 
-    MALLOC_FUNCTION INLINE void * malloc (size_t) {
-      assert (_header.isValid());
-      auto * ptr = _header.malloc();
-      if (ptr) {
-	assert (inRange (ptr));
-	assert ((size_t) ptr % HeapType::Alignment == 0);
-      }
-      return ptr;
-    }
+        MALLOC_FUNCTION INLINE void * malloc (size_t) {
+            assert (_header.isValid());
+            auto * ptr = _header.malloc();
+            if (ptr) {
+                assert (inRange (ptr));
+                assert ((size_t) ptr % HeapType::Alignment == 0);
+            }
+            return ptr;
+        }
 
-    INLINE void free (void * ptr) {
-      if (_header.isValid() && inRange (ptr)) {
-	// Pointer is in range.
-	_header.free (ptr);
-      } else {
-	// Invalid free.
-      }
-    }
+        INLINE void free (void * ptr) {
+            if (_header.isValid() && inRange (ptr)) {
+                // Pointer is in range.
+                _header.free (ptr);
+            } else {
+                // Invalid free.
+            }
+        }
     
-    void clear() {
-      if (_header.isValid())
-	_header.clear();
-    }
+        void clear() {
+            if (_header.isValid())
+                _header.clear();
+        }
     
-    // ----- below here are non-conventional heap methods ----- //
+        // ----- below here are non-conventional heap methods ----- //
     
-    INLINE bool isValidSuperblock() const {
-      auto b = _header.isValid();
-      return b;
-    }
+        INLINE bool isValidSuperblock() const {
+            auto b = _header.isValid();
+            return b;
+        }
     
-    INLINE unsigned int getTotalObjects() const {
-      assert (_header.isValid());
-      return _header.getTotalObjects();
-    }
+        INLINE unsigned int getTotalObjects() const {
+            assert (_header.isValid());
+            return _header.getTotalObjects();
+        }
     
-    /// Return the number of free objects in this superblock.
-    INLINE unsigned int getObjectsFree() const {
-      assert (_header.isValid());
-      assert (_header.getObjectsFree() >= 0);
-      assert (_header.getObjectsFree() <= _header.getTotalObjects());
-      return _header.getObjectsFree();
-    }
+        /// Return the number of free objects in this superblock.
+        INLINE unsigned int getObjectsFree() const {
+            assert (_header.isValid());
+            assert (_header.getObjectsFree() >= 0);
+            assert (_header.getObjectsFree() <= _header.getTotalObjects());
+            return _header.getObjectsFree();
+        }
     
-    inline void lock() {
-      assert (_header.isValid());
-      _header.lock();
-    }
+        inline void lock() {
+            assert (_header.isValid());
+            _header.lock();
+        }
     
-    inline void unlock() {
-      assert (_header.isValid());
-      _header.unlock();
-    }
+        inline void unlock() {
+            assert (_header.isValid());
+            _header.unlock();
+        }
     
-    inline HeapType * getOwner() const {
-      assert (_header.isValid());
-      return _header.getOwner();
-    }
+        inline HeapType * getOwner() const {
+            assert (_header.isValid());
+            return _header.getOwner();
+        }
 
-    inline void setOwner (HeapType * o) {
-      assert (_header.isValid());
-      assert (o != NULL);
-      _header.setOwner (o);
-    }
+        inline void setOwner (HeapType * o) {
+            assert (_header.isValid());
+            assert (o != NULL);
+            _header.setOwner (o);
+        }
     
-    inline HoardSuperblock * getNext() const {
-      assert (_header.isValid());
-      return _header.getNext();
-    }
+        inline HoardSuperblock<LockType, SuperblockSize, HeapType> * getNext() const {
+            assert (_header.isValid());
+            return _header.getNext();
+        }
 
-    inline HoardSuperblock * getPrev() const {
-      assert (_header.isValid());
-      return _header.getPrev();
-    }
+        inline HoardSuperblock<LockType, SuperblockSize, HeapType> * getPrev() const {
+            assert (_header.isValid());
+            return _header.getPrev();
+        }
     
-    inline void setNext (HoardSuperblock * f) {
-      assert (_header.isValid());
-      assert (f != this);
-      _header.setNext (f);
-    }
+        inline void setNext (HoardSuperblock<LockType, SuperblockSize, HeapType> * f) {
+            assert (_header.isValid());
+            assert (f != this);
+            _header.setNext (f);
+        }
     
-    inline void setPrev (HoardSuperblock * f) {
-      assert (_header.isValid());
-      assert (f != this);
-      _header.setPrev (f);
-    }
+        inline void setPrev (HoardSuperblock<LockType, SuperblockSize, HeapType> * f) {
+            assert (_header.isValid());
+            assert (f != this);
+            _header.setPrev (f);
+        }
     
-    INLINE bool inRange (void * ptr) const {
-      // Returns true iff the pointer is valid.
-      auto ptrValue = (size_t) ptr;
-      return ((ptrValue >= (size_t) _buf) &&
-	      (ptrValue < (size_t) &_buf[BufferSize]));
-    }
+        INLINE bool inRange (void * ptr) const {
+            // Returns true iff the pointer is valid.
+            auto ptrValue = (size_t) ptr;
+            return ((ptrValue >= (size_t) _buf) &&
+                    (ptrValue < (size_t) &_buf[BufferSize]));
+        }
     
-    INLINE void * normalize (void * ptr) const {
-      auto * ptr2 = _header.normalize (ptr);
-      assert (inRange (ptr));
-      assert (inRange (ptr2));
-      return ptr2;
-    }
+        INLINE void * normalize (void * ptr) const {
+            auto * ptr2 = _header.normalize (ptr);
+            assert (inRange (ptr));
+            assert (inRange (ptr2));
+            return ptr2;
+        }
 
-    typedef Hoard::HoardSuperblockHeader<LockType, SuperblockSize, HeapType> Header;
+        typedef HeaderType Header;
+    protected:
+    
+    
+        // Disable copying and assignment.
+    
+        HoardSuperblockHelper (const HoardSuperblockHelper&);
+        HoardSuperblockHelper& operator=(const HoardSuperblockHelper&);
+    
+        enum { BufferSize = SuperblockSize - sizeof(HeaderType) };
+    
+        /// The metadata.
+        HeaderType _header;
 
-  private:
-    
-    
-    // Disable copying and assignment.
-    
-    HoardSuperblock (const HoardSuperblock&);
-    HoardSuperblock& operator=(const HoardSuperblock&);
-    
-    enum { BufferSize = SuperblockSize - sizeof(Header) };
-    
-    /// The metadata.
-    Header _header;
+        
+        /// The actual buffer. MUST immediately follow the header!
+        char _buf[BufferSize];
+    };
 
-    
-    /// The actual buffer. MUST immediately follow the header!
-    char _buf[BufferSize];
-  };
+     template <class LockType,
+              int SuperblockSize,
+               class HeapType>
+     class HoardSuperblock : public HoardSuperblockHelper<LockType,
+                                                          SuperblockSize,
+                                                          HeapType,
+                                                          Hoard::HoardSuperblockHeader<LockType, SuperblockSize, HeapType>>
+     {
+     public:
+         HoardSuperblock (size_t sz)
+             : HoardSuperblockHelper<LockType, SuperblockSize, HeapType, Hoard::HoardSuperblockHeader<LockType, SuperblockSize, HeapType>> (sz) {};
+  
+     };
 
 }
 

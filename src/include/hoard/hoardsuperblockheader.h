@@ -199,7 +199,7 @@ namespace Hoard {
       _theLock.unlock();
     }
 
-  private:
+  protected:
 
     MALLOC_FUNCTION INLINE void * reapAlloc() {
       assert (isValid());

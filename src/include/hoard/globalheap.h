@@ -28,7 +28,7 @@
 #ifndef HOARD_GLOBALHEAP_H
 #define HOARD_GLOBALHEAP_H
 
-#include "hoardsuperblock.h"
+#include "../../include/rdmasuperblock.h"
 #include "processheap.h"
 
 namespace Hoard {
@@ -56,7 +56,7 @@ namespace Hoard {
     }
   
     typedef ProcessHeap<SuperblockSize, EmptinessClasses, LockType, bogusThresholdFunctionClass, MmapSource> SuperHeap;
-    typedef HoardSuperblock<LockType, SuperblockSize, GlobalHeap> SuperblockType;
+      typedef Zeus::RdmaSuperblock<LockType, SuperblockSize, GlobalHeap> SuperblockType;
   
     void put (void * s, size_t sz) {
       assert (s);
