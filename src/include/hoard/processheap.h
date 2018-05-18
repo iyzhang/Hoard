@@ -35,38 +35,51 @@
 #include "emptyhoardmanager.h"
 #include "hoardmanager.h"
 #include "hoardsuperblock.h"
+#include "rdmasuperblock.h"
 
 namespace Hoard {
 
-  template <size_t SuperblockSize,
-	    int EmptinessClasses,
-	    class LockType,
-	    class ThresholdClass,
-	    class MmapSource>
-  class ProcessHeap :
-    public ConformantHeap<
-    HoardManager<AlignedSuperblockHeap<LockType, SuperblockSize, MmapSource>,
-		 EmptyHoardManager<HoardSuperblock<LockType, SuperblockSize, ProcessHeap<SuperblockSize, EmptinessClasses, LockType, ThresholdClass, MmapSource> > >,
-		 HoardSuperblock<LockType, SuperblockSize, ProcessHeap<SuperblockSize, EmptinessClasses, LockType, ThresholdClass, MmapSource> >,
-		 EmptinessClasses,
-		 LockType,
-		 ThresholdClass,
-		 ProcessHeap<SuperblockSize, EmptinessClasses, LockType, ThresholdClass, MmapSource> > > {
+    template <size_t SuperblockSize,
+              int EmptinessClasses,
+              class LockType,
+              class ThresholdClass,
+              class MmapSource>
+    class ProcessHeap :
+        public ConformantHeap<
+        HoardManager<AlignedSuperblockHeap<LockType, SuperblockSize, MmapSource>,
+                     EmptyHoardManager<Zeus::RdmaSuperblock<LockType,
+                                                            SuperblockSize,
+                                                            ProcessHeap<SuperblockSize,
+                                                                        EmptinessClasses,
+                                                                        LockType,
+                                                                        ThresholdClass,
+                                                                        MmapSource> > >,
+                     Zeus::RdmaSuperblock<LockType,
+                                          SuperblockSize,
+                                          ProcessHeap<SuperblockSize,
+                                                      EmptinessClasses,
+                                                      LockType,
+                                                      ThresholdClass,
+                                                      MmapSource> >,
+                     EmptinessClasses,
+                     LockType,
+                     ThresholdClass,
+                     ProcessHeap<SuperblockSize, EmptinessClasses, LockType, ThresholdClass, MmapSource> > > {
   
-  public:
+    public:
   
-    ProcessHeap (void) {}
+        ProcessHeap (void) {}
     
-    // Disable allocation from this heap.
-    inline void * malloc (size_t);
+        // Disable allocation from this heap.
+        inline void * malloc (size_t);
 
-  private:
+    private:
 
-    // Prevent copying or assignment.
-    ProcessHeap (const ProcessHeap&);
-    ProcessHeap& operator=(const ProcessHeap&);
+        // Prevent copying or assignment.
+        ProcessHeap (const ProcessHeap&);
+        ProcessHeap& operator=(const ProcessHeap&);
 
-  };
+    };
 
 }
 

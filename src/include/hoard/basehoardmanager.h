@@ -76,7 +76,7 @@ namespace Hoard {
     /// @note  All superblocks <em>must</em> be naturally aligned, and powers of two.
 
     static inline SuperblockType * getSuperblock (void * ptr) {
-      return SuperblockType::getSuperblock (ptr);
+        return SuperblockType::getSuperblock (ptr);
     }
 
   private:

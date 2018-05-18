@@ -28,68 +28,68 @@
 #ifndef HOARD_GLOBALHEAP_H
 #define HOARD_GLOBALHEAP_H
 
-#include "../../include/rdmasuperblock.h"
+#include "rdmasuperblock.h"
 #include "processheap.h"
 
 namespace Hoard {
 
-  template <size_t SuperblockSize,
-	    int EmptinessClasses,
-	    class MmapSource,
-	    class LockType>
-  class GlobalHeap {
+    template <size_t SuperblockSize,
+              int EmptinessClasses,
+              class MmapSource,
+              class LockType>
+    class GlobalHeap {
   
-    class bogusThresholdFunctionClass {
+        class bogusThresholdFunctionClass {
+        public:
+            static inline bool function (unsigned int, unsigned int, size_t) {
+                // We *never* cross the threshold for the global heap, since
+                // it is the "top."
+                return false;
+            }
+        };
+  
     public:
-      static inline bool function (unsigned int, unsigned int, size_t) {
-	// We *never* cross the threshold for the global heap, since
-	// it is the "top."
-	return false;
-      }
+
+        GlobalHeap (void) 
+            : _theHeap (getHeap())
+        {
+        }
+  
+        typedef ProcessHeap<SuperblockSize, EmptinessClasses, LockType, bogusThresholdFunctionClass, MmapSource> SuperHeap;
+        typedef Zeus::RdmaSuperblock<LockType, SuperblockSize, GlobalHeap> SuperblockType;
+  
+        void put (void * s, size_t sz) {
+            assert (s);
+            assert (((SuperblockType *) s)->isValidSuperblock());
+            _theHeap->put ((typename SuperHeap::SuperblockType *) s,
+                           sz);
+        }
+
+        SuperblockType * get (size_t sz, void * dest) {
+            auto * s = 
+                reinterpret_cast<SuperblockType *>
+                (_theHeap->get (sz, reinterpret_cast<SuperHeap *>(dest)));
+            if (s) {
+                assert (s->isValidSuperblock());
+            }
+            return s;
+        }
+
+    private:
+
+        SuperHeap * _theHeap;
+
+        inline static SuperHeap * getHeap (void) {
+            static double theHeapBuf[sizeof(SuperHeap) / sizeof(double) + 1];
+            static auto * theHeap = new (&theHeapBuf[0]) SuperHeap;
+            return theHeap;
+        }
+
+        // Prevent copying.
+        GlobalHeap (const GlobalHeap&);
+        GlobalHeap& operator=(const GlobalHeap&);
+
     };
-  
-  public:
-
-    GlobalHeap (void) 
-      : _theHeap (getHeap())
-    {
-    }
-  
-    typedef ProcessHeap<SuperblockSize, EmptinessClasses, LockType, bogusThresholdFunctionClass, MmapSource> SuperHeap;
-      typedef Zeus::RdmaSuperblock<LockType, SuperblockSize, GlobalHeap> SuperblockType;
-  
-    void put (void * s, size_t sz) {
-      assert (s);
-      assert (((SuperblockType *) s)->isValidSuperblock());
-      _theHeap->put ((typename SuperHeap::SuperblockType *) s,
-		     sz);
-    }
-
-    SuperblockType * get (size_t sz, void * dest) {
-      auto * s = 
-	reinterpret_cast<SuperblockType *>
-	(_theHeap->get (sz, reinterpret_cast<SuperHeap *>(dest)));
-      if (s) {
-	assert (s->isValidSuperblock());
-      }
-      return s;
-    }
-
-  private:
-
-    SuperHeap * _theHeap;
-
-    inline static SuperHeap * getHeap (void) {
-      static double theHeapBuf[sizeof(SuperHeap) / sizeof(double) + 1];
-      static auto * theHeap = new (&theHeapBuf[0]) SuperHeap;
-      return theHeap;
-    }
-
-    // Prevent copying.
-    GlobalHeap (const GlobalHeap&);
-    GlobalHeap& operator=(const GlobalHeap&);
-
-  };
 
 }
 

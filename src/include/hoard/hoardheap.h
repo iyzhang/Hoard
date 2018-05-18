@@ -52,6 +52,7 @@ using namespace HL;
 #include "ignoreinvalidfree.h"
 #include "conformantheap.h"
 #include "hoardsuperblock.h"
+#include "rdmasuperblock.h"
 #include "lockmallocheap.h"
 #include "alignedsuperblockheap.h"
 #include "alignedmmap.h"
@@ -85,134 +86,134 @@ typedef HL::SpinLockType TheLockType;
 
 namespace Hoard {
 
-  class MmapSource : public AlignedMmap<SUPERBLOCK_SIZE, TheLockType> {};
+    class MmapSource : public AlignedMmap<SUPERBLOCK_SIZE, TheLockType> {};
   
-  //
-  // There is just one "global" heap, shared by all of the per-process heaps.
-  //
+    //
+    // There is just one "global" heap, shared by all of the per-process heaps.
+    //
 
-  typedef GlobalHeap<SUPERBLOCK_SIZE, EMPTINESS_CLASSES, MmapSource, TheLockType>
-  TheGlobalHeap;
+    typedef GlobalHeap<SUPERBLOCK_SIZE, EMPTINESS_CLASSES, MmapSource, TheLockType>
+    TheGlobalHeap;
   
-  //
-  // When a thread frees memory and causes a per-process heap to fall
-  // below the emptiness threshold given in the function below, it
-  // moves a (nearly or completely empty) superblock to the global heap.
-  //
+    //
+    // When a thread frees memory and causes a per-process heap to fall
+    // below the emptiness threshold given in the function below, it
+    // moves a (nearly or completely empty) superblock to the global heap.
+    //
 
-  class hoardThresholdFunctionClass {
-  public:
-    inline static bool function (unsigned int u,
-				 unsigned int a,
-				 size_t objSize)
-    {
-      /*
-	Returns 1 iff we've crossed the emptiness threshold:
+    class hoardThresholdFunctionClass {
+    public:
+        inline static bool function (unsigned int u,
+                                     unsigned int a,
+                                     size_t objSize)
+        {
+            /*
+              Returns 1 iff we've crossed the emptiness threshold:
 	
-	U < A - 2S   &&   U < EMPTINESS_CLASSES-1/EMPTINESS_CLASSES * A
+              U < A - 2S   &&   U < EMPTINESS_CLASSES-1/EMPTINESS_CLASSES * A
 	
-      */
-      auto r = ((EMPTINESS_CLASSES * u) < ((EMPTINESS_CLASSES-1) * a)) && ((u < a - (2 * SUPERBLOCK_SIZE) / objSize));
-      return r;
-    }
-  };
+            */
+            auto r = ((EMPTINESS_CLASSES * u) < ((EMPTINESS_CLASSES-1) * a)) && ((u < a - (2 * SUPERBLOCK_SIZE) / objSize));
+            return r;
+        }
+    };
   
 
-  class SmallHeap;
-  
-  typedef HoardSuperblock<TheLockType, SUPERBLOCK_SIZE, SmallHeap> SmallSuperblockType;
+    class SmallHeap;
+    
+    typedef Zeus::RdmaSuperblock<TheLockType, SUPERBLOCK_SIZE, SmallHeap> SmallSuperblockType;
+    
+    //
+    // The heap that manages small objects.
+    //
+    class SmallHeap : 
+        public ConformantHeap<
+        HoardManager<AlignedSuperblockHeap<TheLockType, SUPERBLOCK_SIZE, MmapSource>,
+                     TheGlobalHeap,
+                     SmallSuperblockType,
+                     EMPTINESS_CLASSES,
+                     TheLockType,
+                     hoardThresholdFunctionClass,
+                     SmallHeap> > 
+    {};
 
-  //
-  // The heap that manages small objects.
-  //
-  class SmallHeap : 
-    public ConformantHeap<
-    HoardManager<AlignedSuperblockHeap<TheLockType, SUPERBLOCK_SIZE, MmapSource>,
-		 TheGlobalHeap,
-		 SmallSuperblockType,
-		 EMPTINESS_CLASSES,
-		 TheLockType,
-		 hoardThresholdFunctionClass,
-		 SmallHeap> > 
-  {};
+    class BigHeap;
 
-  class BigHeap;
+    typedef Zeus::RdmaSuperblock<TheLockType, SUPERBLOCK_SIZE, BigHeap> BigSuperblockType;
 
-  typedef HoardSuperblock<TheLockType, SUPERBLOCK_SIZE, BigHeap> BigSuperblockType;
-
-  // The heap that manages large objects.
+    // The heap that manages large objects.
 
 #if 0
 
-  // Old version: slow and now deprecated. Returns every large object
-  // back to the system immediately.
-  typedef ConformantHeap<HL::LockedHeap<TheLockType,
-					AddHeaderHeap<BigSuperblockType,
-						      SUPERBLOCK_SIZE,
-						      MmapSource > > >
-  bigHeapType;
+    // Old version: slow and now deprecated. Returns every large object
+    // back to the system immediately.
+    typedef ConformantHeap<HL::LockedHeap<TheLockType,
+                                          AddHeaderHeap<BigSuperblockType,
+                                                        SUPERBLOCK_SIZE,
+                                                        MmapSource > > >
+    bigHeapType;
 
 #else
 
-  // Experimental faster support for large objects.  MUCH MUCH faster
-  // than the above (around 400x in some tests).  Keeps the amount of
-  // retained memory at no more than X% more than currently allocated.
+    // Experimental faster support for large objects.  MUCH MUCH faster
+    // than the above (around 400x in some tests).  Keeps the amount of
+    // retained memory at no more than X% more than currently allocated.
 
-  class objectSource : public AddHeaderHeap<BigSuperblockType,
-					    SUPERBLOCK_SIZE,
-					    MmapSource> {};
+    class objectSource : public AddHeaderHeap<BigSuperblockType,
+                                              SUPERBLOCK_SIZE,
+                                              MmapSource> {};
 
-  typedef HL::ThreadHeap<64, HL::LockedHeap<TheLockType,
-					    ThresholdSegHeap<25,      // % waste
-							     1048576, // at least 1MB in any heap
-							     80,      // num size classes
-							     GeometricSizeClass<20>::size2class,
-							     GeometricSizeClass<20>::class2size,
-							     GeometricSizeClass<20>::MaxObjectSize,
-							     AdaptHeap<DLList, objectSource>,
-							     objectSource> > >
-  bigHeapType;
+    typedef HL::ThreadHeap<64, HL::LockedHeap<TheLockType,
+                                              ThresholdSegHeap<25,      // % waste
+                                                               1048576, // at least 1MB in any heap
+                                                               80,      // num size classes
+                                                               GeometricSizeClass<20>::size2class,
+                                                               GeometricSizeClass<20>::class2size,
+                                                               GeometricSizeClass<20>::MaxObjectSize,
+                                                               AdaptHeap<DLList, objectSource>,
+                                                               objectSource> > >
+    bigHeapType;
 #endif
 
-  class BigHeap : public bigHeapType {};
+    class BigHeap : public bigHeapType {};
 
-  enum { BigObjectSize = 
-	 HL::bins<SmallSuperblockType::Header, SUPERBLOCK_SIZE>::BIG_OBJECT };
-
-  //
-  // Each thread has its own heap for small objects.
-  //
-  class PerThreadHoardHeap :
-    public RedirectFree<LockMallocHeap<SmallHeap>,
-			SmallSuperblockType> {
-  private:
-    void nothing() {
-      _dummy[0] = _dummy[0];
-    }
-    // Avoid false sharing.
-    char _dummy[64];
-  };
+    enum { BigObjectSize = 
+           HL::bins<SmallSuperblockType::Header, SUPERBLOCK_SIZE>::BIG_OBJECT };
+    
+    //
+    // Each thread has its own heap for small objects.
+    //
+    class PerThreadHoardHeap :
+        public RedirectFree<LockMallocHeap<SmallHeap>,
+                            SmallSuperblockType> {
+    private:
+        void nothing() {
+            _dummy[0] = _dummy[0];
+        }
+        // Avoid false sharing.
+        char _dummy[64];
+    };
   
 
-  template <int N, int NH>
-  class HoardHeap :
-    public HL::ANSIWrapper<
-    IgnoreInvalidFree<
-      HL::HybridHeap<Hoard::BigObjectSize,
-		     ThreadPoolHeap<N, NH, Hoard::PerThreadHoardHeap>,
-		     Hoard::BigHeap> > >
-  {
-  public:
+    template <int N, int NH>
+    class HoardHeap :
+        public HL::ANSIWrapper<
+        IgnoreInvalidFree<
+            HL::HybridHeap<Hoard::BigObjectSize,
+                           ThreadPoolHeap<N, NH, Hoard::PerThreadHoardHeap>,
+                           Hoard::BigHeap> > >
+    {
+    public:
     
-    enum { BIG_OBJECT = Hoard::BigObjectSize };
+        enum { BIG_OBJECT = Hoard::BigObjectSize };
     
-    HoardHeap() {
-      enum { BIG_HEADERS = sizeof(Hoard::BigSuperblockType::Header),
-	     SMALL_HEADERS = sizeof(Hoard::SmallSuperblockType::Header)};
-      static_assert(BIG_HEADERS == SMALL_HEADERS,
-		    "Headers must be the same size.");
-    }
-  };
+        HoardHeap() {
+            enum { BIG_HEADERS = sizeof(Hoard::BigSuperblockType::Header),
+                   SMALL_HEADERS = sizeof(Hoard::SmallSuperblockType::Header)};
+            static_assert(BIG_HEADERS == SMALL_HEADERS,
+                          "Headers must be the same size.");
+        }
+    };
 
 }
 

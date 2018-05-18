@@ -46,22 +46,23 @@ namespace Hoard {
     template <class LockType,
               int SuperblockSize,
               class HeapType,
-              class HeaderType>
-    class HoardSuperblockHelper {
+              class HeaderType,
+              class SuperblockType>
+    class HoardSuperblockExtensible {
     public:
 
-        HoardSuperblockHelper (size_t sz)
+        HoardSuperblockExtensible (size_t sz)
             : _header (sz, BufferSize)
         {
             assert (_header.isValid());
-            assert (this == (HoardSuperblock *)
+            assert (this == (SuperblockType *)
                     (((size_t) this) & ~((size_t) SuperblockSize-1)));
         }
     
         /// @brief Find the start of the superblock by bitmasking.
         /// @note  All superblocks <em>must</em> be naturally aligned, and powers of two.
-        static inline HoardSuperblock<LockType, SuperblockSize, HeapType> * getSuperblock (void * ptr) {
-            return (HoardSuperblock<LockType, SuperblockSize, HeapType> *)
+        static inline SuperblockType * getSuperblock (void * ptr) {
+            return (SuperblockType *)
                 (((size_t) ptr) & ~((size_t) SuperblockSize-1));
         }
 
@@ -147,23 +148,23 @@ namespace Hoard {
             _header.setOwner (o);
         }
     
-        inline HoardSuperblock<LockType, SuperblockSize, HeapType> * getNext() const {
+        inline SuperblockType * getNext() const {
             assert (_header.isValid());
             return _header.getNext();
         }
 
-        inline HoardSuperblock<LockType, SuperblockSize, HeapType> * getPrev() const {
+        inline SuperblockType * getPrev() const {
             assert (_header.isValid());
             return _header.getPrev();
         }
     
-        inline void setNext (HoardSuperblock<LockType, SuperblockSize, HeapType> * f) {
+        inline void setNext (SuperblockType * f) {
             assert (_header.isValid());
             assert (f != this);
             _header.setNext (f);
         }
     
-        inline void setPrev (HoardSuperblock<LockType, SuperblockSize, HeapType> * f) {
+        inline void setPrev (SuperblockType * f) {
             assert (_header.isValid());
             assert (f != this);
             _header.setPrev (f);
@@ -184,13 +185,14 @@ namespace Hoard {
         }
 
         typedef HeaderType Header;
+
     protected:
     
     
         // Disable copying and assignment.
     
-        HoardSuperblockHelper (const HoardSuperblockHelper&);
-        HoardSuperblockHelper& operator=(const HoardSuperblockHelper&);
+        HoardSuperblockExtensible (const HoardSuperblockExtensible&);
+        HoardSuperblockExtensible& operator=(const HoardSuperblockExtensible&);
     
         enum { BufferSize = SuperblockSize - sizeof(HeaderType) };
     
@@ -202,19 +204,32 @@ namespace Hoard {
         char _buf[BufferSize];
     };
 
-     template <class LockType,
+    template <class LockType,
               int SuperblockSize,
-               class HeapType>
-     class HoardSuperblock : public HoardSuperblockHelper<LockType,
-                                                          SuperblockSize,
-                                                          HeapType,
-                                                          Hoard::HoardSuperblockHeader<LockType, SuperblockSize, HeapType>>
-     {
-     public:
-         HoardSuperblock (size_t sz)
-             : HoardSuperblockHelper<LockType, SuperblockSize, HeapType, Hoard::HoardSuperblockHeader<LockType, SuperblockSize, HeapType>> (sz) {};
+              class HeapType>
+    class HoardSuperblock : public HoardSuperblockExtensible<LockType,
+                                                             SuperblockSize,
+                                                             HeapType,
+                                                             Hoard::HoardSuperblockHeader<LockType,
+                                                                                          SuperblockSize,
+                                                                                          HeapType>,
+                                                             Hoard::HoardSuperblock<LockType,
+                                                                                    SuperblockSize,
+                                                                                    HeapType> >
+    {
+    public:
+        HoardSuperblock (size_t sz)
+            : HoardSuperblockExtensible<LockType,
+                                        SuperblockSize,
+                                        HeapType,
+                                        Hoard::HoardSuperblockHeader<LockType,
+                                                                     SuperblockSize,
+                                                                     HeapType>,
+                                        Hoard::HoardSuperblock<LockType,
+                                                               SuperblockSize,
+                                                               HeapType> > (sz) {};
   
-     };
+    };
 
 }
 
